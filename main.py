@@ -44,8 +44,8 @@ class SetupApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("PC Setup")
-        self.geometry("520x600")
-        self.resizable(False, False)
+        self.geometry("520x700")
+        self.resizable(False, True)
         self.configure(bg="#1a1a2e")
         self.checks = []
         self.build_ui()
@@ -91,7 +91,7 @@ class SetupApp(tk.Tk):
         # Log area
         log_frame = tk.Frame(self, bg="#1a1a2e", padx=30)
         log_frame.pack(fill="both", expand=True)
-        self.log_box = tk.Text(log_frame, height=8, bg="#0d0d1a", fg="#00ff88",
+        self.log_box = tk.Text(log_frame, height=5, bg="#0d0d1a", fg="#00ff88",
                                font=("Consolas", 9), relief="flat",
                                state="disabled", wrap="word")
         self.log_box.pack(fill="both", expand=True)
@@ -112,8 +112,9 @@ class SetupApp(tk.Tk):
                                    command=self.start_install,
                                    bg="#e94560", fg="white", relief="flat",
                                    font=("Segoe UI", 13, "bold"),
-                                   padx=20, pady=12, cursor="hand2")
-        self.start_btn.pack(pady=(5, 20))
+                                   padx=20, pady=14, cursor="hand2",
+                                   width=30)
+        self.start_btn.pack(pady=(8, 24), side="bottom")
 
     def select_all(self):
         for v in self.check_vars: v.set(True)
