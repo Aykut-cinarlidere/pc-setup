@@ -14,7 +14,7 @@ CONFIG_FILE = os.path.join(EXE_DIR, "programs.json")
 DEFAULT_PROGRAMS = [
     {
         "name": "Revo Uninstaller",
-        "url": "https://download.revouninstaller.com/download/revosetup.exe",
+        "url": "https://revouninstaller.b-cdn.net/ruf270/revosetup.exe",
         "filename": "revosetup.exe",
         # /VERYSILENT sessiz kurar, masaüstü simgesi oluşturur
         "args": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
