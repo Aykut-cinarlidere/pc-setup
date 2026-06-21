@@ -1,20 +1,22 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 import threading
 import urllib.request
 import os
 import subprocess
 import json
+import sys
 
-DOWNLOAD_DIR = r"C:\pc-setup\downloads"
-CONFIG_FILE = os.path.join(os.environ.get("APPDATA", "."), "pc-setup", "programs.json")
+EXE_DIR = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
+DOWNLOAD_DIR = os.path.join(EXE_DIR, "downloads")
+CONFIG_FILE = os.path.join(EXE_DIR, "programs.json")
 
 DEFAULT_PROGRAMS = [
-    {"name": "Revo Uninstaller", "url": "https://download.revouninstaller.com/download/revosetup.exe", "args": ["/verysilent", "/norestart"]},
-    {"name": "Everything",       "url": "https://www.voidtools.com/Everything-1.4.1.1026.x64-Setup.exe", "args": ["/S"]},
-    {"name": "WizTree",          "url": "https://antibody-software.com/files/wiztree_4_21_setup.exe", "args": ["/VERYSILENT", "/NORESTART"]},
+    {"name": "Revo Uninstaller", "url": "https://download.revouninstaller.com/download/revosetup.exe",              "args": ["/verysilent", "/norestart"]},
+    {"name": "Everything",       "url": "https://www.voidtools.com/Everything-1.4.1.1026.x64-Setup.exe",            "args": ["/S"]},
+    {"name": "WizTree",          "url": "https://antibody-software.com/files/wiztree_4_21_setup.exe",               "args": ["/VERYSILENT", "/NORESTART"]},
     {"name": "WinRAR",           "url": "https://www.win-rar.com/fileadmin/winrar-versions/winrar/winrar-x64-701.exe", "args": ["/S"]},
-    {"name": "Google Chrome",    "url": "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe", "args": ["/silent", "/install"]},
+    {"name": "Google Chrome",    "url": "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe",         "args": ["/silent", "/install"]},
 ]
 
 def load_programs():
@@ -27,7 +29,6 @@ def load_programs():
     return DEFAULT_PROGRAMS[:]
 
 def save_programs(programs):
-    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(programs, f, ensure_ascii=False, indent=2)
 
@@ -35,7 +36,8 @@ class AddProgramDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Program Ekle")
-        self.geometry("460x220")
+        self.geometry("460x300")
+        self.minsize(460, 300)
         self.configure(bg="#1a1a2e")
         self.resizable(False, False)
         self.result = None
@@ -48,29 +50,30 @@ class AddProgramDialog(tk.Toplevel):
 
         form = tk.Frame(self, bg="#1a1a2e", padx=24)
         form.pack(fill="x", pady=8)
+        form.columnconfigure(0, weight=1)
 
         tk.Label(form, text="Program Adı", font=("Segoe UI", 10),
-                 bg="#1a1a2e", fg="#aaa").grid(row=0, column=0, sticky="w", pady=4)
+                 bg="#1a1a2e", fg="#aaa").grid(row=0, column=0, sticky="w", pady=(0,2))
         self.name_entry = tk.Entry(form, font=("Segoe UI", 11), bg="#0f3460",
                                    fg="#e0e0e0", insertbackground="white",
-                                   relief="flat", width=36)
-        self.name_entry.grid(row=1, column=0, sticky="ew", pady=(0, 10), ipady=6)
+                                   relief="flat", width=38)
+        self.name_entry.grid(row=1, column=0, sticky="ew", ipady=7, pady=(0, 14))
 
         tk.Label(form, text="İndirme Linki (.exe)", font=("Segoe UI", 10),
-                 bg="#1a1a2e", fg="#aaa").grid(row=2, column=0, sticky="w", pady=4)
+                 bg="#1a1a2e", fg="#aaa").grid(row=2, column=0, sticky="w", pady=(0,2))
         self.url_entry = tk.Entry(form, font=("Segoe UI", 11), bg="#0f3460",
                                   fg="#e0e0e0", insertbackground="white",
-                                  relief="flat", width=36)
-        self.url_entry.grid(row=3, column=0, sticky="ew", ipady=6)
+                                  relief="flat", width=38)
+        self.url_entry.grid(row=3, column=0, sticky="ew", ipady=7)
 
         btn_row = tk.Frame(self, bg="#1a1a2e")
-        btn_row.pack(pady=16)
+        btn_row.pack(pady=20)
         tk.Button(btn_row, text="İptal", command=self.destroy,
                   bg="#0f3460", fg="#aaa", relief="flat",
-                  font=("Segoe UI", 10), padx=16, pady=6, cursor="hand2").pack(side="left", padx=6)
-        tk.Button(btn_row, text="Ekle", command=self.on_add,
+                  font=("Segoe UI", 10), padx=18, pady=8, cursor="hand2").pack(side="left", padx=8)
+        tk.Button(btn_row, text="  Ekle  ", command=self.on_add,
                   bg="#e94560", fg="white", relief="flat",
-                  font=("Segoe UI", 10, "bold"), padx=24, pady=6, cursor="hand2").pack(side="left", padx=6)
+                  font=("Segoe UI", 10, "bold"), padx=24, pady=8, cursor="hand2").pack(side="left", padx=8)
 
         self.name_entry.focus()
 
@@ -98,7 +101,6 @@ class SetupApp(tk.Tk):
         self.build_ui()
 
     def build_ui(self):
-        # Header
         header = tk.Frame(self, bg="#16213e", pady=16)
         header.pack(fill="x")
         tk.Label(header, text="🖥️  PC Setup", font=("Segoe UI", 20, "bold"),
@@ -106,7 +108,6 @@ class SetupApp(tk.Tk):
         tk.Label(header, text="Kurmak istediğin programları seç ve başlat",
                  font=("Segoe UI", 10), bg="#16213e", fg="#888").pack(pady=(2, 0))
 
-        # Program listesi (scroll destekli)
         list_outer = tk.Frame(self, bg="#1a1a2e", padx=30, pady=16)
         list_outer.pack(fill="both", expand=True)
 
@@ -123,7 +124,6 @@ class SetupApp(tk.Tk):
         self.list_frame.pack(fill="both", expand=True)
         self.render_program_list()
 
-        # Seç / Seçme butonları
         btn_row = tk.Frame(self, bg="#1a1a2e")
         btn_row.pack(pady=(0, 6))
         tk.Button(btn_row, text="Tümünü Seç", command=self.select_all,
@@ -133,7 +133,6 @@ class SetupApp(tk.Tk):
                   bg="#0f3460", fg="#aaa", relief="flat", padx=10, pady=4,
                   font=("Segoe UI", 9), cursor="hand2").pack(side="left", padx=5)
 
-        # Log
         log_frame = tk.Frame(self, bg="#1a1a2e", padx=30)
         log_frame.pack(fill="x")
         self.log_box = tk.Text(log_frame, height=5, bg="#0d0d1a", fg="#00ff88",
@@ -141,13 +140,11 @@ class SetupApp(tk.Tk):
                                state="disabled", wrap="word")
         self.log_box.pack(fill="x")
 
-        # İndirme yolu göstergesi
         path_frame = tk.Frame(self, bg="#1a1a2e", padx=30)
         path_frame.pack(fill="x", pady=(4, 0))
-        tk.Label(path_frame, text=f"📁  İndirme klasörü: {DOWNLOAD_DIR}",
+        tk.Label(path_frame, text=f"📁  İndirme klasörü: .\\downloads\\",
                  font=("Segoe UI", 8), bg="#1a1a2e", fg="#555").pack(anchor="w")
 
-        # Progress
         prog_frame = tk.Frame(self, bg="#1a1a2e", padx=30, pady=6)
         prog_frame.pack(fill="x")
         self.progress = ttk.Progressbar(prog_frame, length=460, mode="determinate")
@@ -156,7 +153,6 @@ class SetupApp(tk.Tk):
         style.theme_use("clam")
         style.configure("TProgressbar", troughcolor="#0f3460", background="#00ff88", thickness=8)
 
-        # Başlat butonu
         self.start_btn = tk.Button(self, text="▶  Kurulumu Başlat",
                                    command=self.start_install,
                                    bg="#e94560", fg="white", relief="flat",
@@ -233,7 +229,7 @@ class SetupApp(tk.Tk):
             self.progress["value"] = int((idx + 1) / total * 100)
             self.update_idletasks()
 
-        self.log(f"🎉 Tamamlandı! Dosyalar: {DOWNLOAD_DIR}")
+        self.log(f"🎉 Tamamlandı!")
         self.start_btn.config(state="normal", text="▶  Kurulumu Başlat")
         messagebox.showinfo("Bitti", f"Tüm seçilen programlar kuruldu!\n\nDosyalar: {DOWNLOAD_DIR}")
 
