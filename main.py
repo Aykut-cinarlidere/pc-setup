@@ -12,11 +12,41 @@ DOWNLOAD_DIR = os.path.join(EXE_DIR, "downloads")
 CONFIG_FILE = os.path.join(EXE_DIR, "programs.json")
 
 DEFAULT_PROGRAMS = [
-    {"name": "Revo Uninstaller", "url": "https://download.revouninstaller.com/download/revosetup.exe",              "args": ["/verysilent", "/norestart"]},
-    {"name": "Everything",       "url": "https://www.voidtools.com/Everything-1.4.1.1026.x64-Setup.exe",            "args": ["/S"]},
-    {"name": "WizTree",          "url": "https://antibody-software.com/files/wiztree_4_21_setup.exe",               "args": ["/VERYSILENT", "/NORESTART"]},
-    {"name": "WinRAR",           "url": "https://www.win-rar.com/fileadmin/winrar-versions/winrar/winrar-x64-701.exe", "args": ["/S"]},
-    {"name": "Google Chrome",    "url": "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe",         "args": ["/silent", "/install"]},
+    {
+        "name": "Revo Uninstaller",
+        "url": "https://download.revouninstaller.com/download/revosetup.exe",
+        "filename": "revosetup.exe",
+        # /VERYSILENT sessiz kurar, masaüstü simgesi oluşturur
+        "args": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+    },
+    {
+        "name": "Everything",
+        "url": "https://www.voidtools.com/Everything-1.4.1.1026.x64-Setup.exe",
+        "filename": "everything-setup.exe",
+        # Everything NSIS tabanlı, /S sessiz kurar
+        "args": ["/S", "/desktop-shortcut=yes"]
+    },
+    {
+        "name": "WizTree",
+        "url": "https://www.diskanalyzer.com/files/wiztree_4_30_setup.exe",
+        "filename": "wiztree-setup.exe",
+        # Inno Setup, VERYSILENT + desktopicon görevi
+        "args": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/TASKS=desktopicon"]
+    },
+    {
+        "name": "WinRAR",
+        "url": "https://www.rarlab.com/rar/winrar-x64-701.exe",
+        "filename": "winrar-setup.exe",
+        # WinRAR /S ile sessiz kurulur, otomatik masaüstü simgesi ekler
+        "args": ["/S"]
+    },
+    {
+        "name": "Google Chrome",
+        "url": "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe",
+        "filename": "chrome-setup.exe",
+        # Chrome standalone /silent /install ile sessiz kurulur
+        "args": ["/silent", "/install"]
+    },
 ]
 
 def load_programs():
@@ -53,14 +83,14 @@ class AddProgramDialog(tk.Toplevel):
         form.columnconfigure(0, weight=1)
 
         tk.Label(form, text="Program Adı", font=("Segoe UI", 10),
-                 bg="#1a1a2e", fg="#aaa").grid(row=0, column=0, sticky="w", pady=(0,2))
+                 bg="#1a1a2e", fg="#aaa").grid(row=0, column=0, sticky="w", pady=(0, 2))
         self.name_entry = tk.Entry(form, font=("Segoe UI", 11), bg="#0f3460",
                                    fg="#e0e0e0", insertbackground="white",
                                    relief="flat", width=38)
         self.name_entry.grid(row=1, column=0, sticky="ew", ipady=7, pady=(0, 14))
 
         tk.Label(form, text="İndirme Linki (.exe)", font=("Segoe UI", 10),
-                 bg="#1a1a2e", fg="#aaa").grid(row=2, column=0, sticky="w", pady=(0,2))
+                 bg="#1a1a2e", fg="#aaa").grid(row=2, column=0, sticky="w", pady=(0, 2))
         self.url_entry = tk.Entry(form, font=("Segoe UI", 11), bg="#0f3460",
                                   fg="#e0e0e0", insertbackground="white",
                                   relief="flat", width=38)
@@ -86,7 +116,10 @@ class AddProgramDialog(tk.Toplevel):
         if not url.lower().startswith("http"):
             messagebox.showwarning("Hatalı link", "Link http:// ile başlamalı.", parent=self)
             return
-        self.result = {"name": name, "url": url, "args": ["/S"]}
+        filename = url.split("/")[-1].split("?")[0]
+        if not filename.endswith(".exe"):
+            filename = name.replace(" ", "_") + ".exe"
+        self.result = {"name": name, "url": url, "filename": filename, "args": ["/S"]}
         self.destroy()
 
 class SetupApp(tk.Tk):
@@ -215,21 +248,42 @@ class SetupApp(tk.Tk):
     def install_all(self, programs):
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
         total = len(programs)
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+        }
+
         for idx, prog in enumerate(programs):
-            filename = prog["url"].split("/")[-1].split("?")[0] or f"{prog['name'].replace(' ','_')}.exe"
+            filename = prog.get("filename") or (prog["url"].split("/")[-1].split("?")[0]) or f"{prog['name'].replace(' ','_')}.exe"
             dest = os.path.join(DOWNLOAD_DIR, filename)
+
             self.log(f"⬇  {prog['name']} indiriliyor...")
             try:
-                urllib.request.urlretrieve(prog["url"], dest)
+                req = urllib.request.Request(prog["url"], headers=headers)
+                with urllib.request.urlopen(req, timeout=60) as response:
+                    with open(dest, 'wb') as f:
+                        f.write(response.read())
+
                 self.log(f"🔧 {prog['name']} kuruluyor...")
-                subprocess.run([dest] + prog.get("args", ["/S"]), check=False)
-                self.log(f"✅ {prog['name']} kuruldu.")
+                result = subprocess.run(
+                    [dest] + prog.get("args", ["/S"]),
+                    timeout=300,
+                    check=False
+                )
+                if result.returncode in (0, 3010):  # 3010 = reboot required ama kuruldu
+                    self.log(f"✅ {prog['name']} kuruldu.")
+                else:
+                    self.log(f"⚠️  {prog['name']} kuruldu (kod: {result.returncode})")
+
+            except subprocess.TimeoutExpired:
+                self.log(f"⚠️  {prog['name']} zaman aşımı — muhtemelen kuruldu.")
             except Exception as e:
-                self.log(f"❌ {prog['name']} başarısız: {e}")
+                self.log(f"❌ {prog['name']} hata: {e}")
+
             self.progress["value"] = int((idx + 1) / total * 100)
             self.update_idletasks()
 
-        self.log(f"🎉 Tamamlandı!")
+        self.log(f"🎉 Tamamlandı! Dosyalar: {DOWNLOAD_DIR}")
         self.start_btn.config(state="normal", text="▶  Kurulumu Başlat")
         messagebox.showinfo("Bitti", f"Tüm seçilen programlar kuruldu!\n\nDosyalar: {DOWNLOAD_DIR}")
 
